@@ -1,0 +1,16 @@
+# Streamlit settings for DocuMind AI.
+
+[browser]
+# No usage statistics are sent to Streamlit.
+gatherUsageStats = false
+
+[server]
+# Listen on this computer only, not on the local network.
+address = "localhost"
+# Skip Streamlit's first-run e-mail prompt. Open http://localhost:8501 yourself.
+headless = true
+
+[client]
+# Never show Python stack traces in the browser; details go to logs/documind.log.
+showErrorDetails = "none"
+toolbarMode = "minimal"

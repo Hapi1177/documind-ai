@@ -1,0 +1,4 @@
+question_id,question,question_type,expected_answer,expected_source_file,expected_source_pages,notes
+EXAMPLE-01,How many days of annual leave do employees receive per year?,answerable,18 days per calendar year,employee_handbook.pdf,4,Replace the EXAMPLE rows with questions about your own PDFs
+EXAMPLE-02,What are the conditions for carrying unused leave into the next year?,answerable,Unused leave may be carried forward for three months,employee_handbook.pdf,4;5,Use a semicolon when the answer spans more than one page
+EXAMPLE-03,What is the company's policy on cryptocurrency bonuses?,unanswerable,,,,The documents do not cover this topic so the assistant should abstain

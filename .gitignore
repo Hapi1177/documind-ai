@@ -37,3 +37,7 @@ logs/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# Evaluation output (may quote private documents)
+evaluation/results/
+evaluation/eval_questions.csv

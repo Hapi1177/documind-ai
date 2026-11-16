@@ -16,7 +16,7 @@ from src import rag
 from src.config import Settings
 from src.errors import EmptyIndexError, OllamaUnavailableError
 from src.ingestion import IngestionResult, ProgressCallback, ingest_pdf
-from src.ollama_client import OllamaService
+from src.ollama_client import OllamaService, normalize_model_name
 from src.rag import RagAnswer, Source
 from src.vector_store import DocumentInfo, VectorStore
 
@@ -60,10 +60,11 @@ class DocumentService:
         """Check the Ollama service and both models. Never raises."""
         settings = self.settings
         try:
-            chat_ready = self.ollama.has_model(settings.chat_model)
-            embedding_ready = self.ollama.has_model(settings.embedding_model)
+            installed = {normalize_model_name(name) for name in self.ollama.list_models()}
         except OllamaUnavailableError as error:
             return SystemStatus(False, False, False, problems=[str(error)])
+        chat_ready = normalize_model_name(settings.chat_model) in installed
+        embedding_ready = normalize_model_name(settings.embedding_model) in installed
 
         problems = []
         if not embedding_ready:

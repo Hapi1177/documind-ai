@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import ollama
 import pymupdf
 import pytest
 
@@ -96,6 +97,7 @@ class FakeOllamaClient:
         self.embed_error: Exception | None = None
         self.chat_error: Exception | None = None
         self.list_error: Exception | None = None
+        self.think_unsupported = False  # simulate a model without thinking mode
 
     def list(self):
         if self.list_error:
@@ -114,10 +116,16 @@ class FakeOllamaClient:
         )
 
     def chat(self, model: str, messages, **kwargs):
+        self.chat_calls.append({"model": model, "messages": messages, **kwargs})
+        if self.think_unsupported and "think" in kwargs:
+            raise ollama.ResponseError(f'"{model}" does not support thinking', 400)
         if self.chat_error:
             raise self.chat_error
-        self.chat_calls.append({"model": model, "messages": messages, **kwargs})
-        return SimpleNamespace(message=SimpleNamespace(content=self.answer))
+        # Stream the answer word by word, like the real client does.
+        pieces = re.findall(r"\S+\s*", self.answer) or [""]
+        return iter(
+            SimpleNamespace(message=SimpleNamespace(content=piece)) for piece in pieces
+        )
 
 
 # --- Fixtures -----------------------------------------------------------------

@@ -71,3 +71,7 @@ class VectorStoreError(DocuMindError):
 
 class EmbeddingModelMismatchError(VectorStoreError):
     """The collection was built with a different embedding model."""
+
+
+class EmptyIndexError(VectorStoreError):
+    """A question was asked before any document was indexed."""

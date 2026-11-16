@@ -8,7 +8,12 @@ import httpx
 import ollama
 import pytest
 
-from src.errors import EmbeddingError, ModelNotFoundError, OllamaUnavailableError
+from src.errors import (
+    EmbeddingError,
+    GenerationError,
+    ModelNotFoundError,
+    OllamaUnavailableError,
+)
 from src.ollama_client import OllamaService, normalize_model_name
 from tests.conftest import FakeOllamaClient
 
@@ -124,3 +129,70 @@ def test_empty_embedding_vector_is_rejected(fake_client):
 
     with pytest.raises(EmbeddingError, match="empty embedding"):
         make_service(fake_client).embed(["one"], "bge-m3")
+
+
+# --- Chat generation ----------------------------------------------------------
+
+MESSAGES = [{"role": "user", "content": "Hello?"}]
+
+
+def test_chat_stream_yields_pieces_that_join_to_the_answer(fake_client):
+    fake_client.answer = "The answer is in the document [S1]."
+    service = make_service(fake_client)
+
+    pieces = list(service.chat_stream(MESSAGES, "qwen3.5:4b", num_ctx=4096, num_predict=512))
+
+    assert len(pieces) > 1
+    assert "".join(pieces) == "The answer is in the document [S1]."
+    assert service.chat(MESSAGES, "qwen3.5:4b", num_ctx=4096, num_predict=512) == "".join(pieces)
+
+
+def test_chat_passes_model_options_and_disables_thinking(fake_client):
+    make_service(fake_client).chat(MESSAGES, "qwen3.5:4b", num_ctx=2048, num_predict=256)
+
+    call = fake_client.chat_calls[-1]
+    assert call["model"] == "qwen3.5:4b"
+    assert call["messages"] == MESSAGES
+    assert call["stream"] is True
+    assert call["think"] is False
+    assert call["options"]["num_ctx"] == 2048
+    assert call["options"]["num_predict"] == 256
+    assert call["options"]["temperature"] <= 0.3
+
+
+def test_chat_retries_without_think_flag_for_models_that_lack_it(fake_client):
+    fake_client.think_unsupported = True
+
+    answer = make_service(fake_client).chat(MESSAGES, "plain-model", num_ctx=4096, num_predict=512)
+
+    assert answer == fake_client.answer
+    assert "think" in fake_client.chat_calls[0]
+    assert "think" not in fake_client.chat_calls[1]
+
+
+def test_chat_missing_model_gives_pull_instruction(fake_client):
+    fake_client.chat_error = ollama.ResponseError("model not found", 404)
+
+    with pytest.raises(ModelNotFoundError, match="ollama pull qwen3.5:4b"):
+        make_service(fake_client).chat(MESSAGES, "qwen3.5:4b", num_ctx=4096, num_predict=512)
+
+
+def test_chat_server_error_becomes_generation_error(fake_client):
+    fake_client.chat_error = ollama.ResponseError("CUDA out of memory", 500)
+
+    with pytest.raises(GenerationError, match="CUDA out of memory"):
+        make_service(fake_client).chat(MESSAGES, "qwen3.5:4b", num_ctx=4096, num_predict=512)
+
+
+def test_chat_connection_failure_is_reported(fake_client):
+    fake_client.chat_error = ConnectionError("refused")
+
+    with pytest.raises(OllamaUnavailableError):
+        make_service(fake_client).chat(MESSAGES, "qwen3.5:4b", num_ctx=4096, num_predict=512)
+
+
+def test_chat_empty_answer_is_an_error(fake_client):
+    fake_client.answer = ""
+
+    with pytest.raises(GenerationError, match="empty answer"):
+        make_service(fake_client).chat(MESSAGES, "qwen3.5:4b", num_ctx=4096, num_predict=512)

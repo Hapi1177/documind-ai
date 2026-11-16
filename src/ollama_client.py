@@ -13,13 +13,14 @@ with a fake.
 
 from __future__ import annotations
 
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Iterator, Mapping, Sequence
 
 import httpx
 import ollama
 
 from src.errors import (
     EmbeddingError,
+    GenerationError,
     ModelNotFoundError,
     OllamaUnavailableError,
 )
@@ -27,6 +28,8 @@ from src.errors import (
 # Local models can be slow to load the first time, especially on CPU.
 REQUEST_TIMEOUT_SECONDS = 300.0
 DEFAULT_EMBED_BATCH_SIZE = 16
+# Low temperature keeps answers close to the retrieved text.
+DEFAULT_TEMPERATURE = 0.1
 
 # Called after each embedding batch with (texts_done, texts_total).
 BatchCallback = Callable[[int, int], None]
@@ -156,3 +159,91 @@ class OllamaService:
         if any(not vector for vector in embeddings):
             raise EmbeddingError(f"The model '{model}' returned an empty embedding.")
         return embeddings
+
+    # --- Chat generation -------------------------------------------------------
+
+    def chat_stream(
+        self,
+        messages: Sequence[Mapping[str, str]],
+        model: str,
+        num_ctx: int,
+        num_predict: int,
+        temperature: float = DEFAULT_TEMPERATURE,
+    ) -> Iterator[str]:
+        """Generate an answer and yield it piece by piece as it is produced.
+
+        "Thinking" is switched off: hidden reasoning tokens would eat into the
+        small context window and make answers much slower, and a RAG answer
+        should come from the supplied context anyway.
+
+        Raises:
+            OllamaUnavailableError: Service not reachable.
+            ModelNotFoundError: Chat model not pulled.
+            GenerationError: Ollama failed or produced no text.
+        """
+        options = {
+            "num_ctx": num_ctx,
+            "num_predict": num_predict,
+            "temperature": temperature,
+        }
+        produced_text = False
+        try:
+            for part in self._open_chat_stream(messages, model, options):
+                piece = part.message.content or ""
+                if piece:
+                    produced_text = True
+                    yield piece
+        except ollama.ResponseError as exc:
+            if exc.status_code == 404:
+                raise self._model_missing(model) from exc
+            raise GenerationError(
+                f"Ollama could not generate an answer with '{model}': {exc.error}"
+            ) from exc
+        except (ConnectionError, httpx.HTTPError) as exc:
+            raise self._unavailable() from exc
+
+        if not produced_text:
+            raise GenerationError(
+                f"The model '{model}' returned an empty answer. Try again, or "
+                "increase NUM_CTX if the documents are long."
+            )
+
+    def _open_chat_stream(
+        self, messages: Sequence[Mapping[str, str]], model: str, options: dict
+    ) -> Iterator[Any]:
+        """Start a streaming chat, retrying once for models without thinking.
+
+        Ollama rejects the ``think`` flag for models that have no thinking
+        mode, so in that case the request is repeated without it.
+        """
+        request = {
+            "model": model,
+            "messages": list(messages),
+            "options": options,
+            "stream": True,
+        }
+        try:
+            stream = iter(self._client.chat(think=False, **request))
+            first = next(stream, None)
+        except ollama.ResponseError as exc:
+            if exc.status_code != 400 or "think" not in str(exc.error).lower():
+                raise
+            stream = iter(self._client.chat(**request))
+            first = next(stream, None)
+
+        if first is not None:
+            yield first
+        yield from stream
+
+    def chat(
+        self,
+        messages: Sequence[Mapping[str, str]],
+        model: str,
+        num_ctx: int,
+        num_predict: int,
+        temperature: float = DEFAULT_TEMPERATURE,
+    ) -> str:
+        """Generate a complete answer and return it as one string."""
+        return "".join(
+            self.chat_stream(messages, model, num_ctx, num_predict, temperature)
+        )

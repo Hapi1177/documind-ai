@@ -417,3 +417,10 @@ documind-ai/
 - The app's own code only connects to the local Ollama service.
 - ChromaDB telemetry and Streamlit usage statistics are switched off.
 - `.env`, `data/chroma`, logs and evaluation results are git-ignored.
+
+## License
+
+Released under the [MIT License](LICENSE).
+
+The models and libraries this project uses have their own licences; check
+them before redistributing or using them commercially.

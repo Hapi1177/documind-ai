@@ -126,7 +126,13 @@ ollama list
 
 ### 3. Get the project
 
-Open PowerShell in the project folder (the folder that contains `app.py`).
+```powershell
+git clone https://github.com/Hapi1177/documind-ai.git
+```
+
+```powershell
+cd documind-ai
+```
 
 ### 4. Create a Python 3.11 environment
 
@@ -303,10 +309,37 @@ yourself with the commands above.
 
 ## Evaluation
 
-No evaluation results are published with this project. The `evaluation`
-folder contains a CSV template for 30-50 manually labelled questions and a
-script that measures Recall@K and abstention automatically, leaving answer
-correctness and citation correctness for manual review. See
+A first, small evaluation has been run: 10 manually labelled questions about
+one public, one-page resume template (`two-column-resume-template-blue.pdf`),
+with the default settings (`qwen3.5:4b`, `bge-m3`, chunk size 1200, overlap
+200, `TOP_K` 5, `NUM_CTX` 4096).
+
+| Measurement | Result | How it was measured |
+| --- | --- | --- |
+| Recall@5 (expected page retrieved) | 9/9 | Automatic |
+| Answer correctness | 8/9 correct, 1/9 partial | Manual review |
+| Citation correctness | 9/9 | Manual review |
+| Abstained on the unanswerable question | 1/1 | Automatic |
+| Answered (did not abstain) on answerable questions | 9/9 | Automatic |
+
+The partial answer listed the candidate's language and typing speed but left
+out bookkeeping.
+
+Read these numbers as a smoke test, not as a quality claim:
+
+- **10 questions is below the 30-50 the method calls for**, and one question
+  is worth about 10 percentage points.
+- **Recall@5 is not informative here.** The document produced only 2 chunks,
+  so with `TOP_K` 5 every chunk is always retrieved.
+- **Abstention rests on a single unanswerable question.**
+- **One short, single-page document** says nothing about multi-page or
+  multi-document retrieval.
+
+The questions are in
+[evaluation/eval_questions_template.csv](evaluation/eval_questions_template.csv)
+and the labelled results in
+[evaluation/example_results/resume_template_results.csv](evaluation/example_results/resume_template_results.csv).
+The method and metrics are explained in
 [evaluation/README.md](evaluation/README.md).
 
 ## Troubleshooting
@@ -350,27 +383,35 @@ correctness and citation correctness for manual review. See
   page is split between two chunks.
 - **Semantic search only.** There is no keyword search or re-ranking, so exact
   codes or rare names may be missed.
-- **Quality has not been measured.** No evaluation has been run yet.
+- **Quality has only been spot-checked.** The evaluation so far is 10
+  questions on one single-page document (see [Evaluation](#evaluation)).
 - **Single user, local use.** There is no login, and the app listens on
   `localhost` only.
 - **Chat history is not saved** between browser sessions. The document index is.
 
 ## Screenshots
 
-Placeholders. Add your own images to `docs/screenshots/` (see
-[docs/screenshots/README.md](docs/screenshots/README.md)) and they will
-appear here.
+**Empty state** - first start, before any document is indexed.
 
-| Screen | Image |
-| --- | --- |
-| Empty state | `docs/screenshots/01-empty-state.png` *(to be added)* |
-| Indexed documents | `docs/screenshots/02-indexed-documents.png` *(to be added)* |
-| Answer with sources | `docs/screenshots/03-answer-with-sources.png` *(to be added)* |
-| Abstention | `docs/screenshots/04-abstention.png` *(to be added)* |
+![DocuMind AI with no documents indexed](docs/screenshots/Empty%20State.png)
+
+**Indexed documents** - the sidebar after indexing a PDF.
+
+![Sidebar showing one indexed PDF with its page and chunk counts](docs/screenshots/Indexed%20documents.png)
+
+**Answer with sources** - answers cite the retrieved passages, with filename
+and page.
+
+![An answer with a citation and an expandable Sources panel](docs/screenshots/Answer%20with%20sources.png)
+
+**Evaluation run** - terminal output of `evaluation\run_evaluation.py`.
+
+![Terminal output of the evaluation script for 10 questions](docs/screenshots/Evaluation%20run.png)
 
 ## Future improvements
 
-- Run the evaluation on a labelled question set and publish the results.
+- Extend the evaluation to 30-50 questions over longer, multi-page documents,
+  with more unanswerable questions.
 - Hybrid search (keyword + vector) and a re-ranking step.
 - Use recent chat turns to rewrite follow-up questions before retrieval.
 - OCR for scanned PDFs.
@@ -385,6 +426,7 @@ appear here.
 documind-ai/
 ├── app.py                      Streamlit UI (no business logic)
 ├── requirements.txt
+├── LICENSE                     MIT
 ├── .env.example                Copy to .env
 ├── .streamlit/config.toml      Streamlit settings (telemetry off, localhost only)
 ├── src/
@@ -402,7 +444,8 @@ documind-ai/
 │   └── verify_retrieval.py     Manual check against the real Ollama service
 ├── evaluation/
 │   ├── README.md               Metrics explained
-│   ├── eval_questions_template.csv
+│   ├── eval_questions_template.csv   10 example questions (resume template)
+│   ├── example_results/        Labelled results of the first evaluation run
 │   └── run_evaluation.py
 ├── docs/
 │   ├── architecture.md

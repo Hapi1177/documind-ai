@@ -1,16 +1,18 @@
 # Evaluating DocuMind AI
 
-**No evaluation has been run for this project yet.** This folder contains the
-tools to run one; it does not contain results, and no quality numbers are
-claimed anywhere in this repository. Any figures you publish should come from
-your own labelled question set.
+**Only a small first evaluation has been run**: 10 questions on one
+single-page public resume template. Its labelled results are in
+`example_results/` and summarised, with their limits, in the main README. It
+is a smoke test, not a quality claim; a meaningful evaluation needs the 30-50
+questions described below.
 
 ## What is in this folder
 
 | File | Purpose |
 | --- | --- |
-| `eval_questions_template.csv` | Template with the columns to fill in, plus three example rows |
+| `eval_questions_template.csv` | Template: the columns to fill in, with the 10 example questions from the first run |
 | `run_evaluation.py` | Runs your questions through the real local pipeline and writes a results CSV |
+| `example_results/` | Labelled results of the first run, kept as a worked example |
 | `results/` | Created on first run. Git-ignored, because answers quote your documents |
 
 ## Step 1 - Write 30 to 50 labelled questions
@@ -27,10 +29,10 @@ Copy-Item evaluation\eval_questions_template.csv evaluation\eval_questions.csv
 | `question_id` | Any unique ID, e.g. `Q01` |
 | `question` | The question, worded the way a real user would ask it |
 | `question_type` | `answerable` or `unanswerable` |
-| `expected_answer` | The correct answer in your own words (empty for unanswerable) |
+| `expected_answer` | The correct answer in your own words. For unanswerable questions, a note that the assistant should abstain |
 | `expected_source_file` | Exact filename as shown in the app, e.g. `handbook.pdf` |
-| `expected_source_pages` | Page(s) that contain the answer, e.g. `4` or `4;5` |
-| `notes` | Optional |
+| `expected_source_pages` | Page(s) that contain the answer, e.g. `4` or `4;5`. Ignored for unanswerable questions |
+| `notes` | Optional column; add it if you want it |
 
 Tips for a useful set:
 
